@@ -509,26 +509,30 @@ const HELP = [
 ];
 
 const TODAY_STR = new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+const KOFI_URL  = "https://ko-fi.com/murmureapp";
 
 // ─── Composants base ───────────────────────────────────────────
-const Bar = ({T,dark,toggle,showBack,onBack}) => {
-  const [t,setT] = useState(new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}));
-  useEffect(()=>{const id=setInterval(()=>setT(new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})),10000);return()=>clearInterval(id);},[]);
-  return (
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px 6px",flexShrink:0}}>
-      {showBack ? <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:4,color:T.soft,fontFamily:"system-ui",fontSize:13,padding:0}}><I.Back c={T.soft}/> Retour</button>
-               : <span style={{fontSize:13,fontWeight:600,color:T.text,fontFamily:"system-ui"}}>{t}</span>}
-      <button onClick={toggle} style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex"}}>
-        {dark ? <I.Sun c={T.soft}/> : <I.Moon c={T.soft}/>}
-      </button>
-    </div>
-  );
-};
+const Bar = ({T,showBack,onBack}) => (
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px 6px",flexShrink:0}}>
+    {showBack
+      ? <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:4,color:T.soft,fontFamily:"system-ui",fontSize:13,padding:0}}><I.Back c={T.soft}/> Retour</button>
+      : <div style={{width:24}}/>
+    }
+    <div style={{width:24}}/>
+  </div>
+);
 
 const HelpBtn = ({T,onClick}) => (
   <button onClick={onClick} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:T.help,fontFamily:"system-ui",fontSize:13,fontWeight:500,padding:"10px 0 2px",width:"100%"}}>
     <I.Heart c={T.help}/> Besoin d'aide ?
   </button>
+);
+
+const KofiBtn = ({T}) => (
+  <a href={KOFI_URL} target="_blank" rel="noopener noreferrer"
+    style={{display:"block",textAlign:"center",fontSize:11,color:T.soft,fontFamily:"system-ui",padding:"4px 0 2px",textDecoration:"none",opacity:0.6}}>
+    Soutenir Murmure
+  </a>
 );
 
 const Btn = ({T,children,onClick,disabled,v="dark"}) => {
@@ -586,12 +590,12 @@ const HelpModal = ({T,onClose}) => {
 };
 
 // ─── Écrans ────────────────────────────────────────────────────
-const Splash = ({T,dark,toggle,onHelp,onNext}) => {
+const Splash = ({T,onHelp,onNext}) => {
   const [v,setV] = useState(false);
   useEffect(()=>{setTimeout(()=>setV(true),80);},[]);
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column",opacity:v?1:0,transition:"opacity .7s"}}>
-      <Bar T={T} dark={dark} toggle={toggle}/>
+      <Bar T={T}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:"32px"}}>
         <div style={{fontSize:10,letterSpacing:4,color:T.soft,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:500,marginBottom:12}}>une voix parmi d'autres</div>
         <div style={{fontSize:50,fontFamily:"Georgia,'Times New Roman',serif",color:T.text,fontWeight:400,letterSpacing:-1,marginBottom:6}}>Murmure</div>
@@ -601,15 +605,16 @@ const Splash = ({T,dark,toggle,onHelp,onNext}) => {
       <div style={{padding:"0 28px 24px",display:"flex",flexDirection:"column",gap:10,flexShrink:0}}>
         <Btn T={T} onClick={onNext}>Commencer</Btn>
         <div style={{textAlign:"center",fontSize:11,color:T.soft,fontFamily:"system-ui"}}>Anonyme · Sans compte · Gratuit</div>
+        <KofiBtn T={T}/>
         <HelpBtn T={T} onClick={onHelp}/>
       </div>
     </div>
   );
 };
 
-const Question = ({T,dark,toggle,onHelp,onAnswer,onVoices,answered,todayQ,voiceCount}) => (
+const Question = ({T,onHelp,onAnswer,onVoices,answered,todayQ,voiceCount}) => (
   <div style={{flex:1,display:"flex",flexDirection:"column"}}>
-    <Bar T={T} dark={dark} toggle={toggle}/>
+    <Bar T={T}/>
     <div style={{padding:"8px 24px 0",flexShrink:0}}>
       <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:T.soft,fontFamily:"system-ui",fontWeight:500}}>{TODAY_STR}</div>
     </div>
@@ -631,12 +636,12 @@ const Question = ({T,dark,toggle,onHelp,onAnswer,onVoices,answered,todayQ,voiceC
   </div>
 );
 
-const Answer = ({T,dark,toggle,onHelp,onBack,onSubmit,todayQ,submitting}) => {
+const Answer = ({T,onHelp,onBack,onSubmit,todayQ,submitting}) => {
   const [text,setText] = useState("");
   const MAX = 200;
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column"}}>
-      <Bar T={T} dark={dark} toggle={toggle} showBack onBack={onBack}/>
+      <Bar T={T} showBack onBack={onBack}/>
       <div style={{padding:"10px 28px 14px",flexShrink:0}}>
         <div style={{fontSize:11.5,color:T.soft,fontFamily:"system-ui",marginBottom:6}}>Ta réponse à</div>
         <div style={{fontSize:16,fontFamily:"Georgia,serif",color:T.text,lineHeight:1.45}}>{todayQ.q}</div>
@@ -658,12 +663,12 @@ const Answer = ({T,dark,toggle,onHelp,onBack,onSubmit,todayQ,submitting}) => {
   );
 };
 
-const Thanks = ({T,dark,toggle,onHelp,onVoices}) => {
+const Thanks = ({T,onHelp,onVoices}) => {
   const [v,setV] = useState(false);
   useEffect(()=>{setTimeout(()=>setV(true),80);},[]);
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column",opacity:v?1:0,transition:"opacity .5s"}}>
-      <Bar T={T} dark={dark} toggle={toggle}/>
+      <Bar T={T}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:"40px 32px"}}>
         <I.Gem c={T.accent} s={26}/>
         <div style={{height:18}}/>
@@ -679,10 +684,10 @@ const Thanks = ({T,dark,toggle,onHelp,onVoices}) => {
   );
 };
 
-const Voices = ({T,dark,toggle,onHelp,onBack,todayQ,voices,loading}) => (
+const Voices = ({T,onHelp,onBack,todayQ,voices,loading}) => (
   <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
     <div style={{flexShrink:0,borderBottom:`1px solid ${T.border}`}}>
-      <Bar T={T} dark={dark} toggle={toggle} showBack onBack={onBack}/>
+      <Bar T={T} showBack onBack={onBack}/>
       <div style={{padding:"0 24px 12px"}}>
         <div style={{fontSize:9.5,letterSpacing:3,textTransform:"uppercase",color:T.accent,fontFamily:"system-ui",fontWeight:700,marginBottom:5}}>
           Les voix d'aujourd'hui {voices.length > 0 && `· ${voices.length}`}
@@ -713,6 +718,7 @@ const Voices = ({T,dark,toggle,onHelp,onBack,todayQ,voices,loading}) => (
     </div>
     <div style={{flexShrink:0,padding:"6px 28px 20px",borderTop:`1px solid ${T.border}`}}>
       <HelpBtn T={T} onClick={onHelp}/>
+      <KofiBtn T={T}/>
     </div>
   </div>
 );
@@ -729,15 +735,24 @@ const Dots = ({current,T}) => (
 export default function App() {
   const [screen,setScreen]   = useState("splash");
   const [answered,setAnswered] = useState(false);
-  const [dark,setDark]       = useState(false);
+  const [dark,setDark]       = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
   const [help,setHelp]       = useState(false);
   const [voices,setVoices]   = useState([]);
   const [loadingV,setLoadingV] = useState(false);
   const [submitting,setSubmitting] = useState(false);
   const [deviceId]           = useState(makeDeviceId);
 
+  // Suit automatiquement la préférence système (mode sombre/clair)
+  useEffect(()=>{
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e) => setDark(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  },[]);
+
   const T      = dark ? DARK : LIGHT;
-  const toggle = () => setDark(d => !d);
   const onHelp = () => setHelp(true);
   const todayQ = getTodayQ();
 
@@ -765,21 +780,46 @@ export default function App() {
     if (ok) { setAnswered(true); setScreen("thanks"); }
   };
 
-  const base = {T, dark, toggle, onHelp, todayQ};
+  const base = {T, onHelp, todayQ};
 
+  // Contenu commun aux deux modes
+  const inner = (
+    <>
+      <div style={{flex:1,display:"flex",flexDirection:"column",paddingTop:2,overflow:"hidden"}}>
+        {screen==="splash"   && <Splash   {...base} onNext={()=>setScreen("question")}/>}
+        {screen==="question" && <Question {...base} onAnswer={()=>setScreen("answer")} onVoices={()=>setScreen("voices")} answered={answered} voiceCount={voices.length}/>}
+        {screen==="answer"   && <Answer   {...base} onBack={()=>setScreen("question")} onSubmit={handleSubmit} submitting={submitting}/>}
+        {screen==="thanks"   && <Thanks   {...base} onVoices={()=>setScreen("voices")}/>}
+        {screen==="voices"   && <Voices   {...base} onBack={()=>setScreen("question")} voices={voices} loading={loadingV}/>}
+      </div>
+      {help && <HelpModal T={T} onClose={()=>setHelp(false)}/>}
+    </>
+  );
+
+  // Mobile (≤600px) : plein écran, respecte le notch, sans dots
+  if (typeof window !== "undefined" && window.innerWidth <= 600) {
+    return (
+      <div style={{
+        position:"fixed", inset:0,
+        backgroundColor:T.bg,
+        display:"flex", flexDirection:"column",
+        overflow:"hidden",
+        paddingTop:"env(safe-area-inset-top,0px)",
+        paddingBottom:"env(safe-area-inset-bottom,0px)",
+        transition:"background-color .35s",
+      }}>
+        {inner}
+      </div>
+    );
+  }
+
+  // Desktop / tablette : cadre iPhone centré sur fond sombre, dots sous le notch
   return (
     <div style={{display:"flex",justifyContent:"center",alignItems:"center",minHeight:"100vh",backgroundColor:"#0A0A0A"}}>
       <div style={{position:"relative",width:375,height:812,backgroundColor:T.bg,borderRadius:44,overflow:"hidden",boxShadow:"0 40px 100px rgba(0,0,0,0.8)",display:"flex",flexDirection:"column",transition:"background-color .35s"}}>
         <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:120,height:28,backgroundColor:"#0A0A0A",borderRadius:"0 0 18px 18px",zIndex:100}}/>
         <Dots current={SCREENS.indexOf(screen)} T={T}/>
-        <div style={{flex:1,display:"flex",flexDirection:"column",paddingTop:2,overflow:"hidden"}}>
-          {screen==="splash"   && <Splash   {...base} onNext={()=>setScreen("question")}/>}
-          {screen==="question" && <Question {...base} onAnswer={()=>setScreen("answer")} onVoices={()=>setScreen("voices")} answered={answered} voiceCount={voices.length}/>}
-          {screen==="answer"   && <Answer   {...base} onBack={()=>setScreen("question")} onSubmit={handleSubmit} submitting={submitting}/>}
-          {screen==="thanks"   && <Thanks   {...base} onVoices={()=>setScreen("voices")}/>}
-          {screen==="voices"   && <Voices   {...base} onBack={()=>setScreen("question")} voices={voices} loading={loadingV}/>}
-        </div>
-        {help && <HelpModal T={T} onClose={()=>setHelp(false)}/>}
+        {inner}
         <div style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",width:120,height:5,backgroundColor:T.text,borderRadius:3,opacity:.12,pointerEvents:"none"}}/>
       </div>
     </div>
