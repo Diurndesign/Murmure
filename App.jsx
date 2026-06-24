@@ -82,6 +82,46 @@ async function sbUpdate(responseId, content) {
   } catch { return false; }
 }
 
+async function sbFlagWithReason(responseId, content, deviceId, reason) {
+  try {
+    // 1. Sauvegarder le signalement pour audit
+    await fetch(`${SB_URL}/rest/v1/flags`, {
+      method: "POST",
+      headers: { ...SB, "Prefer": "return=minimal" },
+      body: JSON.stringify({ response_id: responseId, response_content: content, device_id: deviceId, reason }),
+    });
+    // 2. Supprimer la réponse
+    await fetch(`${SB_URL}/rest/v1/responses?id=eq.${responseId}`, { method: "DELETE", headers: SB });
+    return true;
+  } catch { return false; }
+}
+
+// Limite : 3 signalements max par jour
+function canFlag() {
+  try {
+    const key = "murmure_flags_" + todayStr();
+    const count = parseInt(localStorage.getItem(key) || "0");
+    return count < 3;
+  } catch { return true; }
+}
+function incrementFlagCount() {
+  try {
+    const key = "murmure_flags_" + todayStr();
+    const count = parseInt(localStorage.getItem(key) || "0");
+    localStorage.setItem(key, String(count + 1));
+  } catch {}
+}
+
+async function sbDeleteMyData(deviceId) {
+  try {
+    const r = await fetch(
+      `${SB_URL}/rest/v1/responses?device_id=eq.${deviceId}`,
+      { method: "DELETE", headers: SB }
+    );
+    return r.ok;
+  } catch { return false; }
+}
+
 function makeDeviceId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
     const r = Math.random() * 16 | 0;
@@ -499,7 +539,16 @@ function seededRandom(seed) { const x = Math.sin(seed+1)*10000; return x-Math.fl
 function getTodayQ() {
   const today = new Date(); today.setHours(0,0,0,0);
   const day = Math.floor((today-LAUNCH)/86400000);
-  return QUESTIONS[Math.floor(seededRandom(day)*QUESTIONS.length)];
+  const q = QUESTIONS[Math.floor(seededRandom(day)*QUESTIONS.length)];
+  // Cache hors ligne
+  try { localStorage.setItem("murmure_q_" + todayStr(), JSON.stringify(q)); } catch {}
+  return q;
+}
+function getCachedQ() {
+  try {
+    const c = localStorage.getItem("murmure_q_" + todayStr());
+    return c ? JSON.parse(c) : null;
+  } catch { return null; }
 }
 
 // ─── Thèmes ────────────────────────────────────────────────────
@@ -514,7 +563,9 @@ const I = {
   Heart:({c,s=14}) => <svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
   Gem:  ({c,s=26}) => <svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M12 2l10 10-10 10L2 12z"/></svg>,
   Phone:({c,s=12}) => <svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l1.27-.9a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
-  X:    ({c,s=16}) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  X:       ({c,s=16}) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  Settings:({c,s=18}) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+  Flag:    ({c,s=13}) => <svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg>,
 };
 
 // ─── Numéros d'aide ────────────────────────────────────────────
@@ -555,13 +606,16 @@ const TODAY_STR = new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"num
 const KOFI_URL  = "https://ko-fi.com/murmureapp";
 
 // ─── Composants base ───────────────────────────────────────────
-const Bar = ({T,showBack,onBack}) => (
+const Bar = ({T,showBack,onBack,onSettings}) => (
   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px 6px",flexShrink:0}}>
     {showBack
       ? <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:4,color:T.soft,fontFamily:"system-ui",fontSize:13,padding:0}}><I.Back c={T.soft}/> Retour</button>
       : <div style={{width:24}}/>
     }
-    <div style={{width:24}}/>
+    {onSettings
+      ? <button onClick={onSettings} style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex",alignItems:"center",opacity:.6}}><I.Settings c={T.soft}/></button>
+      : <div style={{width:24}}/>
+    }
   </div>
 );
 
@@ -592,6 +646,150 @@ const Spinner = ({T}) => (
 );
 
 // ─── Modal Aide ────────────────────────────────────────────────
+// ─── Modal Paramètres ──────────────────────────────────────────
+// ─── Modal Signalement ─────────────────────────────────────────
+const REASONS = [
+  "Contenu offensant ou violent",
+  "Harcèlement ou discours haineux",
+  "Spam ou contenu hors sujet",
+  "Contenu inapproprié pour l'app",
+  "Autre",
+];
+
+const FlagModal = ({T, voice, deviceId, onConfirm, onCancel}) => {
+  const [reason, setReason] = useState("");
+  const [sending, setSending] = useState(false);
+  const [vis, setVis] = useState(false);
+  useEffect(()=>{ requestAnimationFrame(()=>setVis(true)); },[]);
+
+  const confirm = async () => {
+    if (!reason) return;
+    setSending(true);
+    const ok = await sbFlagWithReason(voice.id, voice.content, deviceId, reason);
+    setSending(false);
+    if (ok) { incrementFlagCount(); onConfirm(); }
+  };
+
+  return (
+    <div style={{position:"absolute",inset:0,zIndex:300,display:"flex",flexDirection:"column",justifyContent:"flex-end",backgroundColor:"rgba(0,0,0,0.5)",opacity:vis?1:0,transition:"opacity .25s"}}>
+      <div style={{backgroundColor:T.bg,borderRadius:"20px 20px 0 0",padding:"24px 24px 40px",display:"flex",flexDirection:"column",gap:16}}>
+        {/* En-tête */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:16,fontFamily:"Georgia,serif",color:T.text,fontWeight:400}}>Signaler cette voix</div>
+          <button onClick={onCancel} style={{background:"none",border:"none",cursor:"pointer",padding:4}}><I.X c={T.soft}/></button>
+        </div>
+
+        {/* La voix signalée */}
+        <div style={{backgroundColor:T.surface,borderRadius:10,padding:"12px 14px",fontSize:13,fontFamily:"Georgia,serif",color:T.soft,lineHeight:1.6,fontStyle:"italic"}}>
+          "{voice.content.length > 100 ? voice.content.slice(0,100)+"…" : voice.content}"
+        </div>
+
+        {/* Raison */}
+        <div style={{fontSize:12,color:T.soft,fontFamily:"system-ui",fontWeight:600}}>Pourquoi signales-tu cette réponse ?</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {REASONS.map(r => (
+            <button key={r} onClick={()=>setReason(r)}
+              style={{textAlign:"left",padding:"11px 14px",borderRadius:10,border:`1.5px solid ${reason===r ? T.urgent : T.border}`,backgroundColor:reason===r ? T.urgentBg : T.card,color:reason===r ? T.urgent : T.text,fontFamily:"system-ui",fontSize:13,cursor:"pointer",transition:"all .15s"}}>
+              {r}
+            </button>
+          ))}
+        </div>
+
+        {/* Note */}
+        <div style={{fontSize:11,color:T.soft,fontFamily:"system-ui",lineHeight:1.6,opacity:.7}}>
+          Cette réponse sera supprimée immédiatement et définitivement pour tous les utilisateurs. Le signalement est anonyme.
+        </div>
+
+        {/* Boutons */}
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onCancel} style={{flex:1,padding:"14px",borderRadius:12,border:`1px solid ${T.border}`,backgroundColor:"transparent",color:T.soft,fontFamily:"system-ui",fontSize:14,cursor:"pointer"}}>
+            Annuler
+          </button>
+          <button onClick={confirm} disabled={!reason||sending}
+            style={{flex:2,padding:"14px",borderRadius:12,border:"none",backgroundColor:T.urgent,color:"#fff",fontFamily:"system-ui",fontSize:14,fontWeight:600,cursor:(!reason||sending)?"not-allowed":"pointer",opacity:(!reason||sending)?.4:1}}>
+            {sending ? "Suppression…" : "Confirmer le signalement"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SettingsModal = ({T, onClose, deviceId}) => {
+  const [vis,setVis]       = useState(false);
+  const [deleting,setDel]  = useState(false);
+  const [deleted,setDeleted] = useState(false);
+  useEffect(()=>{ requestAnimationFrame(()=>setVis(true)); },[]);
+
+  const handleDelete = async () => {
+    if (!window.confirm("Supprimer toutes tes réponses ? Cette action est irréversible.")) return;
+    setDel(true);
+    const ok = await sbDeleteMyData(deviceId);
+    setDel(false);
+    if (ok) {
+      try { Object.keys(localStorage).filter(k=>k.startsWith("murmure_ans_")).forEach(k=>localStorage.removeItem(k)); } catch {}
+      setDeleted(true);
+    }
+  };
+
+  return (
+    <div style={{position:"absolute",inset:0,zIndex:200,display:"flex",flexDirection:"column",backgroundColor:T.bg,opacity:vis?1:0,transition:"opacity .3s"}}>
+      <div style={{flexShrink:0,padding:"44px 24px 14px",borderBottom:`1px solid ${T.border}`}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <I.Settings c={T.soft} s={18}/>
+            <span style={{fontSize:18,fontFamily:"Georgia,serif",color:T.text}}>Paramètres</span>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",padding:4}}><I.X c={T.soft}/></button>
+        </div>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"24px"}}>
+
+        {/* Confidentialité */}
+        <div style={{marginBottom:28}}>
+          <div style={{fontSize:10,letterSpacing:2.5,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:700,color:T.soft,marginBottom:12}}>Confidentialité</div>
+          <div style={{backgroundColor:T.card,borderRadius:12,border:`1px solid ${T.border}`,padding:"16px"}}>
+            <div style={{fontSize:13,color:T.text,fontFamily:"system-ui",lineHeight:1.8,marginBottom:8,fontWeight:600}}>Ce que Murmure collecte</div>
+            <div style={{fontSize:12.5,color:T.soft,fontFamily:"system-ui",lineHeight:1.75}}>
+              · Un identifiant anonyme généré sur ton appareil{"\n"}
+              · Ta réponse à la question du jour{"\n"}
+              · La date de ta réponse{"\n\n"}
+              Murmure ne collecte aucun nom, email, localisation ou donnée personnelle. Ton identifiant ne peut pas être associé à ton identité.
+            </div>
+          </div>
+        </div>
+
+        {/* Supprimer les données */}
+        <div style={{marginBottom:28}}>
+          <div style={{fontSize:10,letterSpacing:2.5,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:700,color:T.soft,marginBottom:12}}>Mes données</div>
+          {deleted
+            ? <div style={{backgroundColor:T.helpBg,borderRadius:12,padding:"16px",fontSize:13,color:T.help,fontFamily:"system-ui",textAlign:"center"}}>Toutes tes réponses ont été supprimées.</div>
+            : <button onClick={handleDelete} disabled={deleting} style={{width:"100%",padding:"14px",borderRadius:12,border:`1px solid ${T.urgent}44`,backgroundColor:T.urgentBg,color:T.urgent,fontFamily:"system-ui",fontSize:14,fontWeight:600,cursor:"pointer",opacity:deleting?.5:1}}>
+                {deleting ? "Suppression…" : "Supprimer toutes mes réponses"}
+              </button>
+          }
+          <div style={{fontSize:11,color:T.soft,fontFamily:"system-ui",textAlign:"center",marginTop:8}}>Cette action est irréversible.</div>
+        </div>
+
+        {/* Soutenir */}
+        <div style={{marginBottom:28}}>
+          <div style={{fontSize:10,letterSpacing:2.5,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:700,color:T.soft,marginBottom:12}}>Soutenir Murmure</div>
+          <div style={{backgroundColor:T.card,borderRadius:12,border:`1px solid ${T.border}`,padding:"16px"}}>
+            <div style={{fontSize:13,color:T.soft,fontFamily:"system-ui",lineHeight:1.75,marginBottom:12}}>Murmure est gratuit et sans publicité. Si l'app t'a touché, tu peux soutenir le projet librement.</div>
+            <a href={KOFI_URL} target="_blank" rel="noopener noreferrer"
+               style={{display:"block",textAlign:"center",padding:"13px",borderRadius:10,backgroundColor:T.accent,color:"#fff",fontFamily:"system-ui",fontSize:14,fontWeight:600,textDecoration:"none"}}>
+              Faire un don sur Ko-fi
+            </a>
+          </div>
+        </div>
+
+        {/* Version */}
+        <div style={{textAlign:"center",fontSize:11,color:T.soft,fontFamily:"system-ui",opacity:.5}}>Murmure v1.0</div>
+      </div>
+    </div>
+  );
+};
+
 const HelpModal = ({T,onClose}) => {
   const [vis,setVis] = useState(false);
   useEffect(()=>{requestAnimationFrame(()=>setVis(true));},[]);
@@ -633,7 +831,7 @@ const HelpModal = ({T,onClose}) => {
 };
 
 // ─── Écrans ────────────────────────────────────────────────────
-const Splash = ({T,onHelp,onNext}) => {
+const Splash = ({T,onHelp,onSettings,onNext}) => {
   const [title,setTitle] = useState(false);
   const [rest,setRest]   = useState(false);
   useEffect(()=>{
@@ -649,7 +847,7 @@ const Splash = ({T,onHelp,onNext}) => {
 
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column"}}>
-      <Bar T={T}/>
+      <Bar T={T} onSettings={onSettings}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:"32px"}}>
         {/* Tagline — arrive avec le reste */}
         <div style={{fontSize:10,letterSpacing:4,color:T.soft,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:500,marginBottom:12,...restStyle}}>
@@ -674,16 +872,15 @@ const Splash = ({T,onHelp,onNext}) => {
       <div style={{padding:"0 28px 24px",display:"flex",flexDirection:"column",gap:10,flexShrink:0,...restStyle}}>
         <Btn T={T} onClick={onNext}>Commencer</Btn>
         <div style={{textAlign:"center",fontSize:11,color:T.soft,fontFamily:"system-ui"}}>Anonyme · Sans compte · Gratuit</div>
-        <KofiBtn T={T}/>
         <HelpBtn T={T} onClick={onHelp}/>
       </div>
     </div>
   );
 };
 
-const Question = ({T,onHelp,onAnswer,onVoices,answered,todayQ,voiceCount}) => (
+const Question = ({T,onHelp,onSettings,onAnswer,onVoices,answered,todayQ,voiceCount}) => (
   <div style={{flex:1,display:"flex",flexDirection:"column"}}>
-    <Bar T={T}/>
+    <Bar T={T} onSettings={onSettings}/>
     <div style={{padding:"8px 24px 0",flexShrink:0}}>
       <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:T.soft,fontFamily:"system-ui",fontWeight:500}}>{TODAY_STR}</div>
     </div>
@@ -756,7 +953,18 @@ const Thanks = ({T,onHelp,onVoices}) => {
   );
 };
 
-const Voices = ({T,onHelp,onBack,todayQ,voices,loading}) => (
+const Voices = ({T,onHelp,onBack,todayQ,voices,loading,deviceId}) => {
+  const [hidden,  setHidden]  = useState({});
+  const [flagging,setFlagging] = useState(null); // la voix en cours de signalement
+  const visible = voices.filter(v => !hidden[v.id]);
+
+  const openFlag = (v) => {
+    if (!canFlag()) { alert("Tu as atteint la limite de 3 signalements par jour."); return; }
+    setFlagging(v);
+  };
+  const onConfirm = () => { setHidden(h=>({...h,[flagging.id]:true})); setFlagging(null); };
+
+  return (
   <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
     <div style={{flexShrink:0,borderBottom:`1px solid ${T.border}`}}>
       <Bar T={T} showBack onBack={onBack}/>
@@ -776,13 +984,21 @@ const Voices = ({T,onHelp,onBack,todayQ,voices,loading}) => (
           <div style={{fontSize:13,color:T.soft,fontFamily:"system-ui",lineHeight:1.7}}>Personne n'a encore répondu aujourd'hui. Ta voix sera la première lue.</div>
         </div>
       )}
-      {!loading && voices.map((v,i) => (
-        <div key={i} style={{backgroundColor:T.card,border:`1.5px solid ${T.border}`,borderRadius:13,padding:"15px 17px",flexShrink:0}}>
+      {!loading && visible.map((v,i) => (
+        <div key={v.id||i} style={{backgroundColor:T.card,border:`1.5px solid ${T.border}`,borderRadius:13,padding:"15px 17px",flexShrink:0}}>
           <div style={{fontSize:14.5,fontFamily:"Georgia,serif",color:T.text,lineHeight:1.65,marginBottom:9}}>"{v.content}"</div>
-          <div style={{fontSize:10.5,color:T.soft,fontFamily:"system-ui"}}>— Anonyme · {TODAY_STR}</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:10.5,color:T.soft,fontFamily:"system-ui"}}>— Anonyme · {TODAY_STR}</div>
+            <button onClick={()=>openFlag(v)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:4,color:T.soft,fontFamily:"system-ui",fontSize:10,opacity:.4,padding:"2px 0"}}>
+              <I.Flag c={T.soft} s={11}/> Signaler
+            </button>
+          </div>
         </div>
       ))}
-      {!loading && voices.length > 0 && (
+      {!loading && visible.length === 0 && voices.length > 0 && (
+        <div style={{textAlign:"center",padding:"24px 0",fontSize:13,color:T.soft,fontFamily:"system-ui"}}>Toutes les voix ont été signalées.</div>
+      )}
+      {!loading && visible.length > 0 && (
         <div style={{textAlign:"center",padding:"14px 0",fontSize:12,color:T.soft,fontFamily:"system-ui",lineHeight:1.8,flexShrink:0}}>
           Tu as lu toutes les voix d'aujourd'hui.<br/>Reviens demain.
         </div>
@@ -792,8 +1008,10 @@ const Voices = ({T,onHelp,onBack,todayQ,voices,loading}) => (
       <HelpBtn T={T} onClick={onHelp}/>
       <KofiBtn T={T}/>
     </div>
+    {flagging && <FlagModal T={T} voice={flagging} deviceId={deviceId} onConfirm={onConfirm} onCancel={()=>setFlagging(null)}/>}
   </div>
-);
+  );
+};
 
 // ─── Navigation dots ───────────────────────────────────────────
 const SCREENS = ["splash","question","answer","thanks","voices"];
@@ -811,6 +1029,7 @@ export default function App() {
     () => typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
   );
   const [help,setHelp]           = useState(false);
+  const [settings,setSettings]   = useState(false);
   const [voices,setVoices]       = useState([]);
   const [loadingV,setLoadingV]   = useState(false);
   const [submitting,setSubmitting] = useState(false);
@@ -840,7 +1059,8 @@ export default function App() {
   },[]);
 
   const T      = dark ? DARK : LIGHT;
-  const onHelp = () => setHelp(true);
+  const onHelp     = () => setHelp(true);
+  const onSettings = () => setSettings(true);
   const todayQ = getTodayQ();
 
   // Vérifie si déjà répondu (localStorage d'abord, Supabase ensuite)
@@ -918,7 +1138,7 @@ export default function App() {
     @keyframes blurIn { from { opacity:0; filter:blur(10px); } to { opacity:1; filter:blur(0px); } }
   `;
 
-  const base = {T, onHelp, todayQ};
+  const base = {T, onHelp, onSettings, todayQ};
 
   // Contenu commun aux deux modes
   const inner = (
@@ -935,9 +1155,10 @@ export default function App() {
         {screen==="question" && <Question {...base} onAnswer={goToAnswer} onVoices={()=>go("voices")} answered={answered} voiceCount={voices.length}/>}
         {screen==="answer"   && <Answer   {...base} onBack={()=>go("question")} onSubmit={handleSubmit} submitting={submitting} initialText={existingResp?.content || ""}/>}
         {screen==="thanks"   && <Thanks   {...base} onVoices={()=>go("voices")}/>}
-        {screen==="voices"   && <Voices   {...base} onBack={()=>go("question")} voices={voices} loading={loadingV}/>}
+        {screen==="voices"   && <Voices   {...base} onBack={()=>go("question")} voices={voices} loading={loadingV} deviceId={deviceId}/>}
       </div>
-      {help && <HelpModal T={T} onClose={()=>setHelp(false)}/>}
+      {help     && <HelpModal     T={T} onClose={()=>setHelp(false)}/>}
+      {settings && <SettingsModal T={T} onClose={()=>setSettings(false)} deviceId={deviceId}/>}
     </div>
   );
 
