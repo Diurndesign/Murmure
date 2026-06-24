@@ -122,6 +122,17 @@ async function sbDeleteMyData(deviceId) {
   } catch { return false; }
 }
 
+async function sbSendFeedback(content, deviceId) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/feedbacks`, {
+      method: "POST",
+      headers: { ...SB, "Prefer": "return=minimal" },
+      body: JSON.stringify({ content, device_id: deviceId }),
+    });
+    return r.ok || r.status === 201;
+  } catch { return false; }
+}
+
 function makeDeviceId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
     const r = Math.random() * 16 | 0;
@@ -715,6 +726,62 @@ const FlagModal = ({T, voice, deviceId, onConfirm, onCancel}) => {
   );
 };
 
+// ─── Section Suggestions ──────────────────────────────────────
+const FeedbackSection = ({T, deviceId}) => {
+  const [text,    setText]    = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent,    setSent]    = useState(false);
+  const MAX = 500;
+
+  const send = async () => {
+    if (text.trim().length < 5 || sending) return;
+    setSending(true);
+    const ok = await sbSendFeedback(text.trim(), deviceId);
+    setSending(false);
+    if (ok) { setSent(true); setText(""); }
+  };
+
+  return (
+    <div style={{marginBottom:28}}>
+      <div style={{fontSize:10,letterSpacing:2.5,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:700,color:T.soft,marginBottom:12}}>
+        Proposer une amélioration
+      </div>
+      {sent ? (
+        <div style={{backgroundColor:T.card,borderRadius:12,border:`1px solid ${T.border}`,padding:"20px",textAlign:"center"}}>
+          <div style={{fontSize:20,color:T.accent,marginBottom:10}}>✦</div>
+          <div style={{fontSize:15,fontFamily:"Georgia,serif",color:T.text,marginBottom:6}}>Merci pour ta suggestion.</div>
+          <div style={{fontSize:12,color:T.soft,fontFamily:"system-ui",lineHeight:1.65}}>Elle sera lue et prise en compte pour faire évoluer Murmure.</div>
+          <button onClick={()=>setSent(false)} style={{marginTop:14,background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.soft,fontFamily:"system-ui",textDecoration:"underline"}}>
+            Envoyer une autre suggestion
+          </button>
+        </div>
+      ) : (
+        <div style={{backgroundColor:T.card,borderRadius:12,border:`1px solid ${T.border}`,padding:"16px",display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{fontSize:12.5,color:T.soft,fontFamily:"system-ui",lineHeight:1.65}}>
+            Une idée pour améliorer l'app ? Une question qui manque ? Un problème rencontré ? Tout est utile.
+          </div>
+          <textarea
+            value={text}
+            onChange={e=>setText(e.target.value.slice(0,MAX))}
+            placeholder="Écris ta suggestion ici…"
+            rows={4}
+            style={{width:"100%",border:`1.5px solid ${T.border}`,borderRadius:10,padding:"12px",fontSize:14,fontFamily:"Georgia,serif",color:T.text,backgroundColor:T.bg,resize:"none",outline:"none",lineHeight:1.6,caretColor:T.accent,boxSizing:"border-box"}}
+          />
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:11,color:text.length>MAX*.8?T.accent:T.soft,fontFamily:"system-ui"}}>{text.length}/{MAX}</span>
+            <button
+              onClick={send}
+              disabled={text.trim().length<5||sending}
+              style={{padding:"10px 18px",borderRadius:10,border:"none",backgroundColor:T.text,color:T.bg,fontFamily:"system-ui",fontSize:13,fontWeight:600,cursor:(text.trim().length<5||sending)?"not-allowed":"pointer",opacity:(text.trim().length<5||sending)?.4:1,transition:"opacity .2s"}}>
+              {sending ? "Envoi…" : "Envoyer"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SettingsModal = ({T, onClose, deviceId}) => {
   const [vis,setVis]       = useState(false);
   const [deleting,setDel]  = useState(false);
@@ -748,15 +815,14 @@ const SettingsModal = ({T, onClose, deviceId}) => {
         {/* Confidentialité */}
         <div style={{marginBottom:28}}>
           <div style={{fontSize:10,letterSpacing:2.5,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:700,color:T.soft,marginBottom:12}}>Confidentialité</div>
-          <div style={{backgroundColor:T.card,borderRadius:12,border:`1px solid ${T.border}`,padding:"16px"}}>
-            <div style={{fontSize:13,color:T.text,fontFamily:"system-ui",lineHeight:1.8,marginBottom:8,fontWeight:600}}>Ce que Murmure collecte</div>
-            <div style={{fontSize:12.5,color:T.soft,fontFamily:"system-ui",lineHeight:1.75}}>
-              · Un identifiant anonyme généré sur ton appareil{"\n"}
-              · Ta réponse à la question du jour{"\n"}
-              · La date de ta réponse{"\n\n"}
-              Murmure ne collecte aucun nom, email, localisation ou donnée personnelle. Ton identifiant ne peut pas être associé à ton identité.
+          <a href="/privacy" target="_blank" rel="noopener noreferrer"
+             style={{display:"flex",alignItems:"center",justifyContent:"space-between",backgroundColor:T.card,borderRadius:12,border:`1px solid ${T.border}`,padding:"16px 18px",textDecoration:"none"}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:600,color:T.text,fontFamily:"system-ui",marginBottom:4}}>Politique de confidentialité</div>
+              <div style={{fontSize:12,color:T.soft,fontFamily:"system-ui"}}>Ce que Murmure collecte et comment</div>
             </div>
-          </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.soft} strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </a>
         </div>
 
         {/* Supprimer les données */}
@@ -782,6 +848,9 @@ const SettingsModal = ({T, onClose, deviceId}) => {
             </a>
           </div>
         </div>
+
+        {/* Suggestions */}
+        <FeedbackSection T={T} deviceId={deviceId}/>
 
         {/* Version */}
         <div style={{textAlign:"center",fontSize:11,color:T.soft,fontFamily:"system-ui",opacity:.5}}>Murmure v1.0</div>
