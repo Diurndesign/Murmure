@@ -7,6 +7,27 @@ const SB  = { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}`, "Content-Ty
 
 function todayStr() { return new Date().toISOString().split("T")[0]; }
 
+// ─── LocalStorage — persistance entre sessions ─────────────────
+function getOrCreateDeviceId() {
+  try {
+    const k = "murmure_did";
+    const stored = localStorage.getItem(k);
+    if (stored) return stored;
+    const id = makeDeviceId();
+    localStorage.setItem(k, id);
+    return id;
+  } catch { return makeDeviceId(); }
+}
+
+function localHasAnswered() {
+  try { return localStorage.getItem("murmure_ans_" + todayStr()) === "1"; }
+  catch { return false; }
+}
+
+function localSetAnswered() {
+  try { localStorage.setItem("murmure_ans_" + todayStr(), "1"); } catch {}
+}
+
 async function sbFetchVoices(questionId) {
   try {
     const r = await fetch(
@@ -36,6 +57,28 @@ async function sbCheckAnswered(deviceId) {
     );
     const d = await r.json();
     return Array.isArray(d) && d.length > 0;
+  } catch { return false; }
+}
+
+async function sbGetMyResponse(deviceId) {
+  try {
+    const r = await fetch(
+      `${SB_URL}/rest/v1/responses?device_id=eq.${deviceId}&question_date=eq.${todayStr()}&select=id,content`,
+      { headers: SB }
+    );
+    const d = await r.json();
+    return Array.isArray(d) && d.length > 0 ? d[0] : null;
+  } catch { return null; }
+}
+
+async function sbUpdate(responseId, content) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/responses?id=eq.${responseId}`, {
+      method: "PATCH",
+      headers: { ...SB, "Prefer": "return=minimal" },
+      body: JSON.stringify({ content }),
+    });
+    return r.ok;
   } catch { return false; }
 }
 
@@ -636,17 +679,20 @@ const Question = ({T,onHelp,onAnswer,onVoices,answered,todayQ,voiceCount}) => (
   </div>
 );
 
-const Answer = ({T,onHelp,onBack,onSubmit,todayQ,submitting}) => {
-  const [text,setText] = useState("");
+const Answer = ({T,onHelp,onBack,onSubmit,todayQ,submitting,initialText=""}) => {
+  const [text,setText] = useState(initialText);
   const MAX = 200;
+  const isEdit = initialText.length > 0;
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column"}}>
       <Bar T={T} showBack onBack={onBack}/>
       <div style={{padding:"10px 28px 14px",flexShrink:0}}>
-        <div style={{fontSize:11.5,color:T.soft,fontFamily:"system-ui",marginBottom:6}}>Ta réponse à</div>
+        <div style={{fontSize:11.5,color:T.soft,fontFamily:"system-ui",marginBottom:6}}>
+          {isEdit ? "Modifier ta réponse à" : "Ta réponse à"}
+        </div>
         <div style={{fontSize:16,fontFamily:"Georgia,serif",color:T.text,lineHeight:1.45}}>{todayQ.q}</div>
       </div>
-      <div style={{flex:1,padding:"0 28px",minHeight:0}}>
+      <div style={{padding:"0 28px",flex:1,minHeight:80,maxHeight:280}}>
         <div style={{backgroundColor:T.card,borderRadius:14,border:`1.5px solid ${T.border}`,padding:"16px",height:"100%",boxSizing:"border-box"}}>
           <textarea value={text} onChange={e=>setText(e.target.value.slice(0,MAX))} placeholder="Écris ce qui te vient vraiment…" style={{width:"100%",height:"100%",border:"none",outline:"none",background:"transparent",resize:"none",fontSize:16,fontFamily:"Georgia,serif",color:T.text,lineHeight:1.65,boxSizing:"border-box",padding:0,caretColor:T.accent}}/>
         </div>
@@ -654,7 +700,7 @@ const Answer = ({T,onHelp,onBack,onSubmit,todayQ,submitting}) => {
       <div style={{padding:"8px 28px 22px",flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
         <div style={{textAlign:"right",fontSize:11,color:text.length>MAX*.8?T.accent:T.soft,fontFamily:"system-ui"}}>{text.length}/{MAX}</div>
         <Btn T={T} onClick={()=>onSubmit(text)} disabled={text.trim().length<3||submitting}>
-          {submitting ? "Envoi en cours…" : "Envoyer dans le silence"}
+          {submitting ? "Envoi en cours…" : isEdit ? "Mettre à jour" : "Envoyer dans le silence"}
         </Btn>
         <div style={{textAlign:"center",fontSize:11,color:T.soft,fontFamily:"system-ui"}}>Personne ne saura que c'est toi.</div>
         <HelpBtn T={T} onClick={onHelp}/>
@@ -670,7 +716,7 @@ const Thanks = ({T,onHelp,onVoices}) => {
     <div style={{flex:1,display:"flex",flexDirection:"column",opacity:v?1:0,transition:"opacity .5s"}}>
       <Bar T={T}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:"40px 32px"}}>
-        <I.Gem c={T.accent} s={26}/>
+        <I.Gem c={T.accent} s={36}/>
         <div style={{height:18}}/>
         <div style={{fontSize:23,fontFamily:"Georgia,serif",color:T.text,textAlign:"center",lineHeight:1.45,marginBottom:12}}>Ta voix rejoint les autres.</div>
         <div style={{width:30,height:1.5,backgroundColor:T.accent,marginBottom:14}}/>
@@ -699,7 +745,7 @@ const Voices = ({T,onHelp,onBack,todayQ,voices,loading}) => (
       {loading && <Spinner T={T}/>}
       {!loading && voices.length === 0 && (
         <div style={{textAlign:"center",padding:"40px 20px"}}>
-          <div style={{fontSize:22,marginBottom:14}}>✦</div>
+          <div style={{fontSize:24,marginBottom:14,color:T.accent}}>✦</div>
           <div style={{fontSize:16,fontFamily:"Georgia,serif",color:T.text,marginBottom:10}}>Sois la première voix.</div>
           <div style={{fontSize:13,color:T.soft,fontFamily:"system-ui",lineHeight:1.7}}>Personne n'a encore répondu aujourd'hui. Ta voix sera la première lue.</div>
         </div>
@@ -738,13 +784,18 @@ export default function App() {
   const [dark,setDark]       = useState(
     () => typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
   );
-  const [help,setHelp]       = useState(false);
-  const [voices,setVoices]   = useState([]);
-  const [loadingV,setLoadingV] = useState(false);
+  const [help,setHelp]           = useState(false);
+  const [voices,setVoices]       = useState([]);
+  const [loadingV,setLoadingV]   = useState(false);
   const [submitting,setSubmitting] = useState(false);
-  const [deviceId]           = useState(makeDeviceId);
+  const [existingResp,setExisting] = useState(null);
+  const [deviceId]               = useState(getOrCreateDeviceId);
+  // Hauteur visible réelle — se réduit quand le clavier s'ouvre
+  const [vvH, setVvH] = useState(
+    () => typeof window !== "undefined" ? (window.visualViewport?.height || window.innerHeight) : 800
+  );
 
-  // Suit automatiquement la préférence système (mode sombre/clair)
+  // Mode sombre/clair automatique (préférence système)
   useEffect(()=>{
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e) => setDark(e.matches);
@@ -752,13 +803,24 @@ export default function App() {
     return () => mq.removeEventListener("change", handler);
   },[]);
 
+  // Suit la hauteur visible (clavier ouvert/fermé)
+  useEffect(()=>{
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const handler = () => setVvH(vv.height);
+    vv.addEventListener("resize", handler);
+    vv.addEventListener("scroll", handler);
+    return () => { vv.removeEventListener("resize", handler); vv.removeEventListener("scroll", handler); };
+  },[]);
+
   const T      = dark ? DARK : LIGHT;
   const onHelp = () => setHelp(true);
   const todayQ = getTodayQ();
 
-  // Vérifier si déjà répondu aujourd'hui
+  // Vérifie si déjà répondu (localStorage d'abord, Supabase ensuite)
   useEffect(() => {
-    sbCheckAnswered(deviceId).then(setAnswered);
+    if (localHasAnswered()) { setAnswered(true); return; }
+    sbCheckAnswered(deviceId).then(ok => { if (ok) { setAnswered(true); localSetAnswered(); }});
   }, [deviceId]);
 
   // Charger les voix quand on va sur l'écran voices
@@ -772,40 +834,79 @@ export default function App() {
     }
   }, [screen]);
 
+  // Aller sur l'écran de réponse (nouvelle ou modification)
+  const goToAnswer = async () => {
+    if (answered) {
+      const resp = await sbGetMyResponse(deviceId);
+      setExisting(resp);
+    } else {
+      setExisting(null);
+    }
+    setScreen("answer");
+  };
+
+  // Soumettre ou mettre à jour
   const handleSubmit = async (text) => {
     if (text.trim().length < 3) return;
     setSubmitting(true);
-    const ok = await sbSubmit(todayQ.id, text.trim(), deviceId);
+    let ok = false;
+    if (existingResp) {
+      ok = await sbUpdate(existingResp.id, text.trim());
+    } else {
+      ok = await sbSubmit(todayQ.id, text.trim(), deviceId);
+    }
     setSubmitting(false);
-    if (ok) { setAnswered(true); setScreen("thanks"); }
+    if (ok) {
+      setAnswered(true);
+      localSetAnswered();
+      setExisting(null);
+      setScreen("thanks");
+    }
+  };
+
+  // ─── Swipe (glisser à droite = retour) ────────────────────────
+  const BACK_MAP = { answer:"question", thanks:"question", voices:"question", question:"splash" };
+  const touchRef = { start: null };
+  const onTouchStart = (e) => { touchRef.start = e.touches[0].clientX; };
+  const onTouchEnd   = (e) => {
+    if (touchRef.start === null) return;
+    const dist = e.changedTouches[0].clientX - touchRef.start;
+    touchRef.start = null;
+    // Swipe droite > 60px = retour (ignorer si on est dans un textarea)
+    if (dist > 60 && e.target.tagName !== "TEXTAREA") {
+      const dest = BACK_MAP[screen];
+      if (dest) setScreen(dest);
+    }
   };
 
   const base = {T, onHelp, todayQ};
 
   // Contenu commun aux deux modes
   const inner = (
-    <>
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
+         style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <div style={{flex:1,display:"flex",flexDirection:"column",paddingTop:2,overflow:"hidden"}}>
         {screen==="splash"   && <Splash   {...base} onNext={()=>setScreen("question")}/>}
-        {screen==="question" && <Question {...base} onAnswer={()=>setScreen("answer")} onVoices={()=>setScreen("voices")} answered={answered} voiceCount={voices.length}/>}
-        {screen==="answer"   && <Answer   {...base} onBack={()=>setScreen("question")} onSubmit={handleSubmit} submitting={submitting}/>}
+        {screen==="question" && <Question {...base} onAnswer={goToAnswer} onVoices={()=>setScreen("voices")} answered={answered} voiceCount={voices.length}/>}
+        {screen==="answer"   && <Answer   {...base} onBack={()=>setScreen("question")} onSubmit={handleSubmit} submitting={submitting} initialText={existingResp?.content || ""}/>}
         {screen==="thanks"   && <Thanks   {...base} onVoices={()=>setScreen("voices")}/>}
         {screen==="voices"   && <Voices   {...base} onBack={()=>setScreen("question")} voices={voices} loading={loadingV}/>}
       </div>
       {help && <HelpModal T={T} onClose={()=>setHelp(false)}/>}
-    </>
+    </div>
   );
 
-  // Mobile (≤600px) : plein écran, respecte le notch, sans dots
+  // Mobile (≤600px) : plein écran, hauteur suit le clavier via visualViewport
   if (typeof window !== "undefined" && window.innerWidth <= 600) {
     return (
       <div style={{
-        position:"fixed", inset:0,
+        position:"fixed",
+        top:0, left:0, right:0,
+        height: vvH + "px",   // se réduit quand le clavier s'ouvre
         backgroundColor:T.bg,
         display:"flex", flexDirection:"column",
         overflow:"hidden",
         paddingTop:"env(safe-area-inset-top,0px)",
-        paddingBottom:"env(safe-area-inset-bottom,0px)",
         transition:"background-color .35s",
       }}>
         {inner}
