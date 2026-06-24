@@ -634,18 +634,44 @@ const HelpModal = ({T,onClose}) => {
 
 // ─── Écrans ────────────────────────────────────────────────────
 const Splash = ({T,onHelp,onNext}) => {
-  const [v,setV] = useState(false);
-  useEffect(()=>{setTimeout(()=>setV(true),80);},[]);
+  const [title,setTitle] = useState(false);
+  const [rest,setRest]   = useState(false);
+  useEffect(()=>{
+    setTimeout(()=>setTitle(true), 120);   // "Murmure" arrive en premier
+    setTimeout(()=>setRest(true),  900);   // tout le reste arrive ensemble
+  },[]);
+
+  const restStyle = {
+    opacity: rest ? 1 : 0,
+    filter:  rest ? "blur(0px)" : "blur(10px)",
+    transition: "opacity 0.6s ease, filter 0.6s ease",
+  };
+
   return (
-    <div style={{flex:1,display:"flex",flexDirection:"column",opacity:v?1:0,transition:"opacity .7s"}}>
+    <div style={{flex:1,display:"flex",flexDirection:"column"}}>
       <Bar T={T}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:"32px"}}>
-        <div style={{fontSize:10,letterSpacing:4,color:T.soft,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:500,marginBottom:12}}>une voix parmi d'autres</div>
-        <div style={{fontSize:50,fontFamily:"Georgia,'Times New Roman',serif",color:T.text,fontWeight:400,letterSpacing:-1,marginBottom:6}}>Murmure</div>
-        <div style={{width:30,height:1.5,backgroundColor:T.accent,marginBottom:22}}/>
-        <div style={{fontSize:14,color:T.soft,textAlign:"center",lineHeight:1.8,fontFamily:"system-ui",maxWidth:210}}>Une question. Des réponses d'inconnus. Rien d'autre.</div>
+        {/* Tagline — arrive avec le reste */}
+        <div style={{fontSize:10,letterSpacing:4,color:T.soft,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:500,marginBottom:12,...restStyle}}>
+          une voix parmi d'autres
+        </div>
+        {/* MURMURE — apparaît en premier */}
+        <div style={{
+          fontSize:50,fontFamily:"Georgia,'Times New Roman',serif",color:T.text,fontWeight:400,letterSpacing:-1,marginBottom:6,
+          opacity:title?1:0, filter:title?"blur(0px)":"blur(8px)",
+          transition:"opacity 0.5s ease, filter 0.5s ease",
+        }}>
+          Murmure
+        </div>
+        {/* Ligne — arrive avec le reste */}
+        <div style={{width:30,height:1.5,backgroundColor:T.accent,marginBottom:22,...restStyle}}/>
+        {/* Phrase — arrive avec le reste */}
+        <div style={{fontSize:14,color:T.soft,textAlign:"center",lineHeight:1.8,fontFamily:"system-ui",maxWidth:210,...restStyle}}>
+          Une question. Des réponses d'inconnus. Rien d'autre.
+        </div>
       </div>
-      <div style={{padding:"0 28px 24px",display:"flex",flexDirection:"column",gap:10,flexShrink:0}}>
+      {/* Boutons — arrivent avec le reste */}
+      <div style={{padding:"0 28px 24px",display:"flex",flexDirection:"column",gap:10,flexShrink:0,...restStyle}}>
         <Btn T={T} onClick={onNext}>Commencer</Btn>
         <div style={{textAlign:"center",fontSize:11,color:T.soft,fontFamily:"system-ui"}}>Anonyme · Sans compte · Gratuit</div>
         <KofiBtn T={T}/>
@@ -842,7 +868,7 @@ export default function App() {
     } else {
       setExisting(null);
     }
-    setScreen("answer");
+    go("answer");
   };
 
   // Soumettre ou mettre à jour
@@ -860,8 +886,17 @@ export default function App() {
       setAnswered(true);
       localSetAnswered();
       setExisting(null);
-      setScreen("thanks");
+      go("thanks");
     }
+  };
+
+  // ─── Navigation avec direction pour les animations ────────────
+  const SCREEN_ORDER = ["splash","question","answer","thanks","voices"];
+  const dirRef = { current: 1 }; // 1 = avant, -1 = arrière
+
+  const go = (to) => {
+    dirRef.current = SCREEN_ORDER.indexOf(to) >= SCREEN_ORDER.indexOf(screen) ? 1 : -1;
+    setScreen(to);
   };
 
   // ─── Swipe (glisser à droite = retour) ────────────────────────
@@ -872,12 +907,16 @@ export default function App() {
     if (touchRef.start === null) return;
     const dist = e.changedTouches[0].clientX - touchRef.start;
     touchRef.start = null;
-    // Swipe droite > 60px = retour (ignorer si on est dans un textarea)
     if (dist > 60 && e.target.tagName !== "TEXTAREA") {
       const dest = BACK_MAP[screen];
-      if (dest) setScreen(dest);
+      if (dest) go(dest);
     }
   };
+
+  // CSS animations — flou doux
+  const transitionCSS = `
+    @keyframes blurIn { from { opacity:0; filter:blur(10px); } to { opacity:1; filter:blur(0px); } }
+  `;
 
   const base = {T, onHelp, todayQ};
 
@@ -885,12 +924,18 @@ export default function App() {
   const inner = (
     <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
          style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-      <div style={{flex:1,display:"flex",flexDirection:"column",paddingTop:2,overflow:"hidden"}}>
-        {screen==="splash"   && <Splash   {...base} onNext={()=>setScreen("question")}/>}
-        {screen==="question" && <Question {...base} onAnswer={goToAnswer} onVoices={()=>setScreen("voices")} answered={answered} voiceCount={voices.length}/>}
-        {screen==="answer"   && <Answer   {...base} onBack={()=>setScreen("question")} onSubmit={handleSubmit} submitting={submitting} initialText={existingResp?.content || ""}/>}
-        {screen==="thanks"   && <Thanks   {...base} onVoices={()=>setScreen("voices")}/>}
-        {screen==="voices"   && <Voices   {...base} onBack={()=>setScreen("question")} voices={voices} loading={loadingV}/>}
+      <style>{transitionCSS}</style>
+      {/* key={screen} force le re-mount à chaque changement → animation joue */}
+      <div key={screen}
+           style={{
+             flex:1, display:"flex", flexDirection:"column", paddingTop:2, overflow:"hidden",
+           animation:`blurIn 0.35s ease both`
+           }}>
+        {screen==="splash"   && <Splash   {...base} onNext={()=>go("question")}/>}
+        {screen==="question" && <Question {...base} onAnswer={goToAnswer} onVoices={()=>go("voices")} answered={answered} voiceCount={voices.length}/>}
+        {screen==="answer"   && <Answer   {...base} onBack={()=>go("question")} onSubmit={handleSubmit} submitting={submitting} initialText={existingResp?.content || ""}/>}
+        {screen==="thanks"   && <Thanks   {...base} onVoices={()=>go("voices")}/>}
+        {screen==="voices"   && <Voices   {...base} onBack={()=>go("question")} voices={voices} loading={loadingV}/>}
       </div>
       {help && <HelpModal T={T} onClose={()=>setHelp(false)}/>}
     </div>
