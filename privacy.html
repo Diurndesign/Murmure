@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="robots" content="index, follow"/>
+  <title>Politique de confidentialité — Murmure</title>
+  <style>
+    :root {
+      --bg:      #F6F3EE;
+      --text:    #1A1815;
+      --soft:    #8A8680;
+      --accent:  #B8742A;
+      --border:  #D8D4CC;
+      --card:    #FDFCFA;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:    #111009;
+        --text:  #EDE9E1;
+        --soft:  #6B6860;
+        --accent:#D4924A;
+        --border:#2E2C24;
+        --card:  #1C1A14;
+      }
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      line-height: 1.7;
+      padding: 0 24px;
+      transition: background .3s, color .3s;
+    }
+    .wrap { max-width: 640px; margin: 0 auto; padding: 64px 0 96px; }
+
+    /* Header */
+    .back {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--soft); text-decoration: none;
+      margin-bottom: 48px; opacity: .7;
+    }
+    .back:hover { opacity: 1; }
+    .back svg { flex-shrink: 0; }
+
+    .app-name {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 13px; letter-spacing: 1px;
+      color: var(--soft); margin-bottom: 8px;
+    }
+    h1 {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: clamp(28px, 6vw, 40px);
+      font-weight: 400; letter-spacing: -0.5px;
+      color: var(--text); margin-bottom: 12px;
+      line-height: 1.25;
+    }
+    .accent-line {
+      width: 36px; height: 2px;
+      background: var(--accent); margin-bottom: 20px;
+    }
+    .updated {
+      font-size: 12px; color: var(--soft); margin-bottom: 56px;
+    }
+
+    /* Sections */
+    section { margin-bottom: 44px; }
+    h2 {
+      font-size: 10px; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--accent);
+      font-weight: 600; margin-bottom: 16px;
+    }
+    p { font-size: 15px; color: var(--text); margin-bottom: 12px; }
+    p:last-child { margin-bottom: 0; }
+
+    ul {
+      list-style: none; display: flex;
+      flex-direction: column; gap: 8px;
+      margin-bottom: 12px;
+    }
+    li {
+      font-size: 15px; color: var(--text);
+      padding-left: 16px; position: relative;
+    }
+    li::before {
+      content: "·"; position: absolute; left: 0;
+      color: var(--accent); font-weight: 700;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 22px;
+    }
+    .card p, .card li { font-size: 14px; }
+
+    /* Highlight */
+    .highlight {
+      background: var(--card);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 10px 10px 0;
+      padding: 14px 18px;
+      font-size: 14px; color: var(--soft);
+    }
+
+    /* Delete button */
+    .delete-note {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      font-size: 13px; color: var(--soft);
+      line-height: 1.65;
+    }
+    .delete-note strong { color: var(--text); }
+
+    /* Footer */
+    footer {
+      margin-top: 64px; padding-top: 24px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    footer p { font-size: 12px; color: var(--soft); margin-bottom: 4px; }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="back" href="/">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <path d="M15 18l-6-6 6-6"/>
+    </svg>
+    Retour à l'app
+  </a>
+
+  <div class="app-name">Murmure</div>
+  <h1>Politique de<br>confidentialité</h1>
+  <div class="accent-line"></div>
+  <div class="updated">Dernière mise à jour : juin 2025</div>
+
+  <div class="highlight">
+    Murmure est une application anonyme. Nous ne collectons aucune donnée personnelle permettant de t'identifier.
+  </div>
+
+  <hr/>
+
+  <!-- Ce que nous collectons -->
+  <section>
+    <h2>Ce que nous collectons</h2>
+    <div class="card">
+      <ul>
+        <li><strong>Un identifiant anonyme</strong> — généré aléatoirement sur ton appareil lors de ta première utilisation. Il n'est associé à aucune identité réelle (pas de nom, email, ni compte).</li>
+        <li><strong>Ta réponse à la question du jour</strong> — le texte que tu choisis de partager anonymement.</li>
+        <li><strong>La date de ta réponse</strong> — pour afficher les réponses du bon jour.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Ce que nous ne collectons pas -->
+  <section>
+    <h2>Ce que nous ne collectons jamais</h2>
+    <div class="card">
+      <ul>
+        <li>Nom, prénom ou pseudonyme</li>
+        <li>Adresse email ou numéro de téléphone</li>
+        <li>Localisation ou adresse IP</li>
+        <li>Informations de paiement</li>
+        <li>Données de navigation ou cookies tiers</li>
+        <li>Photos, contacts ou accès au matériel de ton appareil</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Comment les données sont utilisées -->
+  <section>
+    <h2>Comment tes données sont utilisées</h2>
+    <p>Tes réponses sont affichées anonymement aux autres utilisateurs de l'app. Ton identifiant sert uniquement à limiter les soumissions à une réponse par jour et par appareil, et à te permettre de modifier ou supprimer ta réponse.</p>
+    <p>Murmure n'utilise aucune donnée à des fins publicitaires, marketing ou d'analyse comportementale.</p>
+  </section>
+
+  <!-- Hébergement -->
+  <section>
+    <h2>Hébergement et sécurité</h2>
+    <p>Les données sont hébergées sur <strong>Supabase</strong>, infrastructure basée dans l'Union Européenne (Irlande), conforme au RGPD. Les communications sont chiffrées via HTTPS.</p>
+  </section>
+
+  <!-- Partage -->
+  <section>
+    <h2>Partage des données</h2>
+    <p>Murmure ne vend, ne loue et ne partage aucune donnée avec des tiers à des fins commerciales. Les données ne sont transmises à aucun réseau publicitaire ni outil de tracking.</p>
+  </section>
+
+  <!-- Suppression -->
+  <section>
+    <h2>Suppression de tes données</h2>
+    <div class="delete-note">
+      Tu peux supprimer toutes tes réponses à tout moment depuis l'app :<br/>
+      <strong>Paramètres → Supprimer mes réponses</strong><br/><br/>
+      Cette action est immédiate et irréversible. Les données sont supprimées définitivement de nos serveurs.
+    </div>
+  </section>
+
+  <!-- Signalements -->
+  <section>
+    <h2>Modération et signalements</h2>
+    <p>Lorsqu'un utilisateur signale une réponse, le contenu et la raison du signalement sont conservés dans un journal d'audit interne pour permettre la modération. Ce journal n'est pas accessible publiquement.</p>
+  </section>
+
+  <!-- Mineurs -->
+  <section>
+    <h2>Âge minimum</h2>
+    <p>Murmure est destiné aux personnes âgées de 17 ans et plus. Nous ne collectons pas sciemment de données concernant des mineurs.</p>
+  </section>
+
+  <!-- Modifications -->
+  <section>
+    <h2>Modifications de cette politique</h2>
+    <p>Toute modification substantielle de cette politique sera signalée dans l'app. La date de mise à jour figure en haut de cette page.</p>
+  </section>
+
+  <footer>
+    <p>Des questions ? Contacte-nous à</p>
+    <p><a href="mailto:diurn.design@gmail.com">diurn.design@gmail.com</a></p>
+    <p style="margin-top:16px">© 2025 Murmure · <a href="/">Retour à l'app</a></p>
+  </footer>
+
+</div>
+</body>
+</html>
