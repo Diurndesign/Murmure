@@ -5,9 +5,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:android": "vite build && npx cap sync android",
+    "open:android": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
