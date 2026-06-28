@@ -727,6 +727,148 @@ const FlagModal = ({T, voice, deviceId, onConfirm, onCancel}) => {
 };
 
 // ─── Section Suggestions ──────────────────────────────────────
+// ─── Notifications locales ─────────────────────────────────────
+const NOTIF_TIMES = [
+  { label: "8h00 — Le matin",        hour: 8  },
+  { label: "9h00 — En matinée",      hour: 9  },
+  { label: "12h00 — À midi",         hour: 12 },
+  { label: "18h00 — En soirée",      hour: 18 },
+  { label: "20h00 — Le soir",        hour: 20 },
+  { label: "21h00 — Avant de dormir",hour: 21 },
+];
+
+function isNativeApp() {
+  return typeof window !== "undefined" &&
+         window.Capacitor !== undefined &&
+         window.Capacitor.isNativePlatform();
+}
+
+async function scheduleNotif(hour) {
+  if (!isNativeApp()) return false;
+  try {
+    const { LocalNotifications } = await import("@capacitor/local-notifications");
+    const perm = await LocalNotifications.requestPermissions();
+    if (perm.display !== "granted") return false;
+    await LocalNotifications.cancel({ notifications: [{ id: 42 }] });
+    await LocalNotifications.schedule({
+      notifications: [{
+        id: 42,
+        title: "Murmure",
+        body: "La question du jour t'attend.",
+        schedule: { on: { hour, minute: 0 }, repeats: true },
+        sound: null,
+        extra: null,
+      }]
+    });
+    return true;
+  } catch { return false; }
+}
+
+async function cancelNotif() {
+  if (!isNativeApp()) return;
+  try {
+    const { LocalNotifications } = await import("@capacitor/local-notifications");
+    await LocalNotifications.cancel({ notifications: [{ id: 42 }] });
+  } catch {}
+}
+
+const NotificationSection = ({T}) => {
+  const [enabled,  setEnabled]  = useState(() => {
+    try { return localStorage.getItem("murmure_notif") === "1"; } catch { return false; }
+  });
+  const [hour, setHour] = useState(() => {
+    try { return parseInt(localStorage.getItem("murmure_notif_h") || "9"); } catch { return 9; }
+  });
+  const [status, setStatus] = useState(""); // "", "ok", "denied", "web"
+
+  const toggle = async () => {
+    if (!isNativeApp()) { setStatus("web"); return; }
+    if (enabled) {
+      await cancelNotif();
+      try { localStorage.removeItem("murmure_notif"); } catch {}
+      setEnabled(false);
+      setStatus("");
+    } else {
+      const ok = await scheduleNotif(hour);
+      if (ok) {
+        try { localStorage.setItem("murmure_notif", "1"); localStorage.setItem("murmure_notif_h", String(hour)); } catch {}
+        setEnabled(true);
+        setStatus("ok");
+      } else {
+        setStatus("denied");
+      }
+    }
+  };
+
+  const changeHour = async (h) => {
+    setHour(h);
+    try { localStorage.setItem("murmure_notif_h", String(h)); } catch {}
+    if (enabled && isNativeApp()) await scheduleNotif(h);
+  };
+
+  return (
+    <div style={{marginBottom:28}}>
+      <div style={{fontSize:10,letterSpacing:2.5,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:700,color:T.soft,marginBottom:12}}>
+        Rappel quotidien
+      </div>
+      <div style={{backgroundColor:T.card,borderRadius:12,border:`1px solid ${T.border}`,padding:"16px",display:"flex",flexDirection:"column",gap:14}}>
+        {/* Toggle */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,fontFamily:"system-ui",marginBottom:3}}>
+              La question du jour t'attend.
+            </div>
+            <div style={{fontSize:12,color:T.soft,fontFamily:"system-ui"}}>
+              Une notification discrète, une fois par jour.
+            </div>
+          </div>
+          <button onClick={toggle}
+            style={{width:48,height:28,borderRadius:14,border:"none",cursor:"pointer",
+              backgroundColor: enabled ? T.accent : T.border,
+              position:"relative",transition:"background-color .2s",flexShrink:0}}>
+            <div style={{position:"absolute",top:3,left:enabled?22:3,width:22,height:22,
+              borderRadius:11,backgroundColor:"#fff",transition:"left .2s"}}/>
+          </button>
+        </div>
+
+        {/* Choix de l'heure — visible seulement si activé */}
+        {enabled && (
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            <div style={{fontSize:11,color:T.soft,fontFamily:"system-ui",marginBottom:2}}>Heure du rappel</div>
+            {NOTIF_TIMES.map(t => (
+              <button key={t.hour} onClick={()=>changeHour(t.hour)}
+                style={{textAlign:"left",padding:"10px 12px",borderRadius:10,
+                  border:`1.5px solid ${hour===t.hour ? T.accent : T.border}`,
+                  backgroundColor: hour===t.hour ? T.accentBg||"transparent" : "transparent",
+                  color: hour===t.hour ? T.accent : T.soft,
+                  fontFamily:"system-ui",fontSize:13,cursor:"pointer",transition:"all .15s"}}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Messages de statut */}
+        {status==="ok" && (
+          <div style={{fontSize:12,color:T.help,fontFamily:"system-ui",textAlign:"center"}}>
+            ✓ Rappel activé tous les jours à {hour}h00
+          </div>
+        )}
+        {status==="denied" && (
+          <div style={{fontSize:12,color:T.urgent,fontFamily:"system-ui",lineHeight:1.6}}>
+            Les notifications sont bloquées. Active-les dans Réglages → Murmure → Notifications.
+          </div>
+        )}
+        {status==="web" && (
+          <div style={{fontSize:12,color:T.soft,fontFamily:"system-ui",lineHeight:1.6,textAlign:"center",opacity:.8}}>
+            Les notifications sont disponibles dans l'app Android et iOS.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const FeedbackSection = ({T, deviceId}) => {
   const [text,    setText]    = useState("");
   const [sending, setSending] = useState(false);
@@ -836,6 +978,9 @@ const SettingsModal = ({T, onClose, deviceId}) => {
           }
           <div style={{fontSize:11,color:T.soft,fontFamily:"system-ui",textAlign:"center",marginTop:8}}>Cette action est irréversible.</div>
         </div>
+
+        {/* Notifications */}
+        <NotificationSection T={T}/>
 
         {/* Soutenir */}
         <div style={{marginBottom:28}}>
