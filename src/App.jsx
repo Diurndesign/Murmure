@@ -1076,7 +1076,11 @@ const SettingsModal = ({T, onClose, deviceId}) => {
     const ok = await sbDeleteMyData(deviceId);
     setDel(false);
     if (ok) {
-      try { Object.keys(localStorage).filter(k=>k.startsWith("murmure_ans_")).forEach(k=>localStorage.removeItem(k)); } catch {}
+      try {
+        Object.keys(localStorage)
+          .filter(k => k.startsWith("murmure_ans_") || k.startsWith("murmure_letter_"))
+          .forEach(k => localStorage.removeItem(k));
+      } catch {}
       setDeleted(true);
     }
   };
