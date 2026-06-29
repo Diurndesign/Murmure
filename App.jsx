@@ -133,6 +133,37 @@ async function sbSendFeedback(content, deviceId) {
   } catch { return false; }
 }
 
+// Toutes les réponses de l'utilisateur (journal)
+async function sbGetMyJournal(deviceId) {
+  try {
+    const r = await fetch(
+      `${SB_URL}/rest/v1/responses?device_id=eq.${deviceId}&order=question_date.desc&select=question_id,question_date,content`,
+      { headers: SB }
+    );
+    return await r.json();
+  } catch { return []; }
+}
+
+// Réponse d'il y a exactement 1 an (la lettre)
+async function sbGetLetter(deviceId) {
+  try {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 1);
+    const oneYearAgo = d.toISOString().split("T")[0];
+    const r = await fetch(
+      `${SB_URL}/rest/v1/responses?device_id=eq.${deviceId}&question_date=eq.${oneYearAgo}&select=question_id,question_date,content`,
+      { headers: SB }
+    );
+    const data = await r.json();
+    return Array.isArray(data) && data.length > 0 ? data[0] : null;
+  } catch { return null; }
+}
+
+// Retrouver une question par son id
+function getQuestionById(id) {
+  return QUESTIONS.find(q => q.id === id) || null;
+}
+
 function makeDeviceId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
     const r = Math.random() * 16 | 0;
@@ -563,8 +594,8 @@ function getCachedQ() {
 }
 
 // ─── Thèmes ────────────────────────────────────────────────────
-const LIGHT = {bg:"#F6F3EE",surface:"#EDEAE3",card:"#FDFCFA",border:"#D8D4CC",text:"#1A1815",soft:"#8A8680",accent:"#B8742A",help:"#3D7A56",helpBg:"#E4F0EB",urgent:"#B84040",urgentBg:"#F5E4E4"};
-const DARK  = {bg:"#111009",surface:"#1C1A14",card:"#242118",border:"#2E2C24",text:"#EDE9E1",soft:"#6B6860",accent:"#D4924A",help:"#5DAF80",helpBg:"#162018",urgent:"#E07070",urgentBg:"#2A1414"};
+const LIGHT = {bg:"#F6F3EE",surface:"#EDEAE3",card:"#FDFCFA",border:"#D8D4CC",text:"#1A1815",soft:"#8A8680",accent:"#B8742A",accentBg:"#F0E4D0",help:"#3D7A56",helpBg:"#E4F0EB",urgent:"#B84040",urgentBg:"#F5E4E4"};
+const DARK  = {bg:"#111009",surface:"#1C1A14",card:"#242118",border:"#2E2C24",text:"#EDE9E1",soft:"#6B6860",accent:"#D4924A",accentBg:"#2A2018",help:"#5DAF80",helpBg:"#162018",urgent:"#E07070",urgentBg:"#2A1414"};
 
 // ─── Icônes SVG flat ───────────────────────────────────────────
 const I = {
@@ -577,6 +608,7 @@ const I = {
   X:       ({c,s=16}) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   Settings:({c,s=18}) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
   Flag:    ({c,s=13}) => <svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg>,
+  Book:    ({c,s=15}) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
 };
 
 // ─── Numéros d'aide ────────────────────────────────────────────
@@ -727,6 +759,114 @@ const FlagModal = ({T, voice, deviceId, onConfirm, onCancel}) => {
 };
 
 // ─── Section Suggestions ──────────────────────────────────────
+// ─── Écran Lettre d'il y a un an ──────────────────────────────
+const Letter = ({T, onHelp, letterData, onContinue, onJournal}) => {
+  const [vis, setVis] = useState(false);
+  useEffect(()=>{ setTimeout(()=>setVis(true), 100); },[]);
+  const q = getQuestionById(letterData.question_id);
+  const date = new Date(letterData.question_date + "T12:00:00").toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
+  return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",opacity:vis?1:0,transition:"opacity .7s"}}>
+      <Bar T={T}/>
+      <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"8px 28px 24px"}}>
+        <div style={{fontSize:9.5,letterSpacing:3,textTransform:"uppercase",color:T.accent,fontFamily:"system-ui",fontWeight:700,marginBottom:16}}>
+          Il y a un an
+        </div>
+        <div style={{fontSize:13,color:T.soft,fontFamily:"system-ui",lineHeight:1.75,marginBottom:24}}>
+          Le {date}, tu as répondu à cette question.
+        </div>
+        {q && (
+          <div style={{fontSize:"clamp(18px,4.5vw,22px)",fontFamily:"Georgia,serif",color:T.text,lineHeight:1.5,marginBottom:24}}>
+            {q.q}
+          </div>
+        )}
+        <div style={{width:36,height:1.5,backgroundColor:T.accent,marginBottom:24}}/>
+        <div style={{backgroundColor:T.card,border:`1.5px solid ${T.border}`,borderLeft:`3px solid ${T.accent}`,borderRadius:13,padding:"20px 18px",marginBottom:16}}>
+          <div style={{fontSize:"clamp(15px,4vw,17px)",fontFamily:"Georgia,serif",color:T.text,lineHeight:1.7}}>
+            "{letterData.content}"
+          </div>
+        </div>
+        <div style={{fontSize:12,color:T.soft,fontFamily:"system-ui",textAlign:"center",lineHeight:1.75,opacity:.8}}>
+          C'était toi. Il y a exactement un an.
+        </div>
+      </div>
+      <div style={{padding:"0 28px 22px",display:"flex",flexDirection:"column",gap:10,flexShrink:0}}>
+        <Btn T={T} onClick={onJournal} v="accent">Voir mon journal</Btn>
+        <Btn T={T} onClick={onContinue} v="ghost">Continuer</Btn>
+        <HelpBtn T={T} onClick={onHelp}/>
+      </div>
+    </div>
+  );
+};
+
+// ─── Écran Journal ─────────────────────────────────────────────
+const Journal = ({T, onBack, onHelp, deviceId}) => {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(()=>{
+    sbGetMyJournal(deviceId).then(data=>{
+      setEntries(Array.isArray(data) ? data : []);
+      setLoading(false);
+    });
+  },[]);
+
+  const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+  return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      <div style={{flexShrink:0,borderBottom:`1px solid ${T.border}`}}>
+        <Bar T={T} showBack onBack={onBack}/>
+        <div style={{padding:"0 24px 14px"}}>
+          <div style={{fontSize:9.5,letterSpacing:3,textTransform:"uppercase",color:T.accent,fontFamily:"system-ui",fontWeight:700,marginBottom:5}}>
+            Mon journal
+          </div>
+          {!loading && (
+            <div style={{fontSize:13,color:T.soft,fontFamily:"system-ui"}}>
+              {entries.length > 0 ? `${entries.length} réponse${entries.length>1?"s":""} depuis le début` : "Aucune réponse pour l'instant"}
+            </div>
+          )}
+        </div>
+      </div>
+      <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"14px 24px 8px",display:"flex",flexDirection:"column",gap:12}}>
+        {loading && <Spinner T={T}/>}
+        {!loading && entries.length === 0 && (
+          <div style={{textAlign:"center",padding:"48px 20px"}}>
+            <div style={{fontSize:24,marginBottom:14,color:T.accent}}>✦</div>
+            <div style={{fontSize:16,fontFamily:"Georgia,serif",color:T.text,marginBottom:10}}>Ton journal commence aujourd'hui.</div>
+            <div style={{fontSize:13,color:T.soft,fontFamily:"system-ui",lineHeight:1.7}}>Réponds à la question du jour et reviens ici dans quelques semaines.</div>
+          </div>
+        )}
+        {!loading && entries.map((e,i)=>{
+          const q = getQuestionById(e.question_id);
+          return (
+            <div key={i} style={{backgroundColor:T.card,border:`1.5px solid ${T.border}`,borderRadius:13,padding:"16px 18px",flexShrink:0}}>
+              <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:T.accent,fontFamily:"system-ui",fontWeight:600,marginBottom:8}}>
+                {fmtDate(e.question_date)}
+              </div>
+              {q && (
+                <div style={{fontSize:12.5,color:T.soft,fontFamily:"Georgia,serif",lineHeight:1.5,marginBottom:10,fontStyle:"italic"}}>
+                  {q.q}
+                </div>
+              )}
+              <div style={{fontSize:15,fontFamily:"Georgia,serif",color:T.text,lineHeight:1.65}}>
+                "{e.content}"
+              </div>
+            </div>
+          );
+        })}
+        {!loading && entries.length > 0 && (
+          <div style={{textAlign:"center",padding:"12px 0 20px",fontSize:12,color:T.soft,fontFamily:"system-ui",lineHeight:1.8}}>
+            Depuis le début. ✦
+          </div>
+        )}
+      </div>
+      <div style={{flexShrink:0,padding:"6px 28px 20px",borderTop:`1px solid ${T.border}`}}>
+        <HelpBtn T={T} onClick={onHelp}/>
+      </div>
+    </div>
+  );
+};
+
 // ─── Notifications locales ─────────────────────────────────────
 const NOTIF_TIMES = [
   { label: "8h00 — Le matin",        hour: 8  },
@@ -1092,7 +1232,7 @@ const Splash = ({T,onHelp,onSettings,onNext}) => {
   );
 };
 
-const Question = ({T,onHelp,onSettings,onAnswer,onVoices,answered,todayQ,voiceCount}) => (
+const Question = ({T,onHelp,onSettings,onAnswer,onVoices,onJournal,answered,todayQ,voiceCount}) => (
   <div style={{flex:1,display:"flex",flexDirection:"column"}}>
     <Bar T={T} onSettings={onSettings}/>
     <div style={{padding:"8px 24px 0",flexShrink:0}}>
@@ -1111,6 +1251,9 @@ const Question = ({T,onHelp,onSettings,onAnswer,onVoices,answered,todayQ,voiceCo
       <Btn T={T} onClick={onVoices} v={answered?"dark":"ghost"}>
         {voiceCount > 0 ? `Lire les ${voiceCount} voix` : answered ? "Lire les voix" : "Voir les voix"}
       </Btn>
+      <button onClick={onJournal} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,color:T.soft,fontFamily:"system-ui",fontSize:12,padding:"6px 0",opacity:.6}}>
+        <I.Book c={T.soft} s={13}/> Mon journal
+      </button>
       <HelpBtn T={T} onClick={onHelp}/>
     </div>
   </div>
@@ -1228,7 +1371,7 @@ const Voices = ({T,onHelp,onBack,todayQ,voices,loading,deviceId}) => {
 };
 
 // ─── Navigation dots ───────────────────────────────────────────
-const SCREENS = ["splash","question","answer","thanks","voices"];
+const SCREENS = ["splash","letter","question","answer","thanks","voices","journal"];
 const Dots = ({current,T}) => (
   <div style={{position:"absolute",top:10,left:"50%",transform:"translateX(-50%)",display:"flex",gap:5,zIndex:20}}>
     {SCREENS.map((_,i) => <div key={i} style={{width:i===current?16:5,height:5,borderRadius:3,backgroundColor:i===current?T.text:T.border,transition:"all .3s"}}/>)}
@@ -1243,6 +1386,7 @@ export default function App() {
     () => typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
   );
   const [help,setHelp]           = useState(false);
+  const [letterData,setLetter]   = useState(null);
   const [settings,setSettings]   = useState(false);
   const [voices,setVoices]       = useState([]);
   const [loadingV,setLoadingV]   = useState(false);
@@ -1275,12 +1419,31 @@ export default function App() {
   const T      = dark ? DARK : LIGHT;
   const onHelp     = () => setHelp(true);
   const onSettings = () => setSettings(true);
+  const onJournal  = () => go("journal");
+  // Après splash : montrer la lettre si elle existe, sinon la question
+  const goAfterSplash = () => {
+    const key = "murmure_letter_" + todayStr();
+    if (letterData && typeof localStorage !== "undefined" && !localStorage.getItem(key)) {
+      go("letter");
+    } else {
+      go("question");
+    }
+  };
   const todayQ = getTodayQ();
 
   // Vérifie si déjà répondu (localStorage d'abord, Supabase ensuite)
   useEffect(() => {
     if (localHasAnswered()) { setAnswered(true); return; }
     sbCheckAnswered(deviceId).then(ok => { if (ok) { setAnswered(true); localSetAnswered(); }});
+  }, [deviceId]);
+
+  // Vérifier s'il y a une lettre d'il y a un an (une seule fois par jour)
+  useEffect(() => {
+    const key = "murmure_letter_" + todayStr();
+    if (typeof localStorage !== "undefined" && localStorage.getItem(key)) return;
+    sbGetLetter(deviceId).then(resp => {
+      if (resp) setLetter(resp);
+    });
   }, [deviceId]);
 
   // Charger les voix quand on va sur l'écran voices
@@ -1325,7 +1488,7 @@ export default function App() {
   };
 
   // ─── Navigation avec direction pour les animations ────────────
-  const SCREEN_ORDER = ["splash","question","answer","thanks","voices"];
+  const SCREEN_ORDER = ["splash","letter","question","answer","thanks","voices","journal"];
   const dirRef = { current: 1 }; // 1 = avant, -1 = arrière
 
   const go = (to) => {
@@ -1334,7 +1497,7 @@ export default function App() {
   };
 
   // ─── Swipe (glisser à droite = retour) ────────────────────────
-  const BACK_MAP = { answer:"question", thanks:"question", voices:"question", question:"splash" };
+  const BACK_MAP = { answer:"question", thanks:"question", voices:"question", question:"splash", letter:"question", journal:"question" };
   const touchRef = { start: null };
   const onTouchStart = (e) => { touchRef.start = e.touches[0].clientX; };
   const onTouchEnd   = (e) => {
@@ -1352,7 +1515,7 @@ export default function App() {
     @keyframes blurIn { from { opacity:0; filter:blur(10px); } to { opacity:1; filter:blur(0px); } }
   `;
 
-  const base = {T, onHelp, onSettings, todayQ};
+  const base = {T, onHelp, onSettings, onJournal, todayQ};
 
   // Contenu commun aux deux modes
   const inner = (
@@ -1365,8 +1528,10 @@ export default function App() {
              flex:1, display:"flex", flexDirection:"column", paddingTop:2, overflow:"hidden",
            animation:`blurIn 0.35s ease both`
            }}>
-        {screen==="splash"   && <Splash   {...base} onNext={()=>go("question")}/>}
+        {screen==="splash"   && <Splash   {...base} onNext={goAfterSplash}/>}
+        {screen==="letter"   && <Letter   {...base} letterData={letterData} onContinue={()=>{ try{localStorage.setItem("murmure_letter_"+todayStr(),"1")}catch{}; go("question"); }} onJournal={()=>{ try{localStorage.setItem("murmure_letter_"+todayStr(),"1")}catch{}; go("journal"); }}/>}
         {screen==="question" && <Question {...base} onAnswer={goToAnswer} onVoices={()=>go("voices")} answered={answered} voiceCount={voices.length}/>}
+        {screen==="journal"  && <Journal  {...base} onBack={()=>go("question")} deviceId={deviceId}/>}
         {screen==="answer"   && <Answer   {...base} onBack={()=>go("question")} onSubmit={handleSubmit} submitting={submitting} initialText={existingResp?.content || ""}/>}
         {screen==="thanks"   && <Thanks   {...base} onVoices={()=>go("voices")}/>}
         {screen==="voices"   && <Voices   {...base} onBack={()=>go("question")} voices={voices} loading={loadingV} deviceId={deviceId}/>}
